@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buscador de Adjudicados SECOP — Leads para pólizas de cumplimiento</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#1B2430;
+    --ink-soft:#4A5568;
+    --paper:#F7F5F1;
+    --panel:#FFFFFF;
+    --line:#E2E0DA;
+    --brand:#0F5C4C;
+    --brand-soft:#E5F0EC;
+    --amber:#C97A32;
+    --amber-soft:#FBEEE0;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height:1.5;
+  }
+  header{
+    padding:2.2rem 1.5rem 1.6rem;
+    border-bottom:1px solid var(--line);
+    background:var(--panel);
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:0 1.5rem;}
+  h1{
+    font-size:1.55rem;
+    margin:0 0 0.3rem;
+    letter-spacing:-0.01em;
+    color:var(--ink);
+  }
+  .eyebrow{
+    font-size:0.72rem;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--brand);
+    font-weight:700;
+    margin-bottom:0.5rem;
+    display:block;
+  }
+  .subtitle{color:var(--ink-soft); font-size:0.95rem; max-width:640px;}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:1.3rem;
+    margin-top:1.4rem;
+  }
+  .controls{
+    display:flex;
+    gap:0.8rem;
+    flex-wrap:wrap;
+    align-items:flex-end;
+  }
+  .field{display:flex; flex-direction:column; gap:0.35rem;}
+  .field label{font-size:0.78rem; color:var(--ink-soft); font-weight:600;}
+  .field input{
+    padding:0.6rem 0.75rem;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:0.9rem;
+    min-width:220px;
+    font-family:inherit;
+  }
+  .field input:focus{outline:2px solid var(--brand); outline-offset:1px;}
+
+  button{
+    font-family:inherit;
+    font-size:0.9rem;
+    font-weight:600;
+    border-radius:8px;
+    border:none;
+    padding:0.65rem 1.1rem;
+    cursor:pointer;
+    transition:opacity 0.15s;
+  }
+  button:hover{opacity:0.88;}
+  button:disabled{opacity:0.5; cursor:not-allowed;}
+  .btn-primary{background:var(--brand); color:#fff;}
+  .btn-secondary{background:var(--amber-soft); color:var(--amber); border:1px solid var(--amber);}
+
+  .status{
+    margin-top:0.9rem;
+    font-size:0.85rem;
+    color:var(--ink-soft);
+    min-height:1.2rem;
+  }
+  .status.error{color:#B3261E;}
+  .status.ok{color:var(--brand);}
+
+  table{width:100%; border-collapse:collapse; margin-top:1.2rem; font-size:0.83rem;}
+  thead th{
+    text-align:left;
+    padding:0.6rem 0.7rem;
+    background:var(--brand-soft);
+    color:var(--brand);
+    font-weight:700;
+    border-bottom:2px solid var(--brand);
+    position:sticky;
+    top:0;
+  }
+  tbody td{
+    padding:0.65rem 0.7rem;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr:hover{background:#FAFAF8;}
+  .table-scroll{max-height:560px; overflow:auto; border:1px solid var(--line); border-radius:8px; margin-top:1rem;}
+  .col-msg{max-width:260px;}
+  .msg-text{
+    font-size:0.78rem;
+    color:var(--ink-soft);
+    max-height:4.4em;
+    overflow:hidden;
+    cursor:pointer;
+  }
+  .msg-text.expanded{max-height:none;}
+  .msg-hint{font-size:0.72rem; color:var(--amber); margin-top:0.2rem;}
+  a.detalle-link{color:var(--brand); font-weight:600; text-decoration:none;}
+  a.detalle-link:hover{text-decoration:underline;}
+
+  .empty-state{
+    text-align:center;
+    padding:2.5rem 1rem;
+    color:var(--ink-soft);
+    font-size:0.9rem;
+  }
+  footer{
+    text-align:center;
+    padding:2rem 1rem 3rem;
+    color:var(--ink-soft);
+    font-size:0.78rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="eyebrow">Puente SECOP → pólizas de cumplimiento</span>
+    <h1>Buscador de procesos adjudicados</h1>
+    <p class="subtitle">Consulta en vivo la fuente pública oficial de contratación del Estado colombiano. Trae los procesos ya adjudicados, con enlace directo a cada Detalle para verificar el contacto.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="panel">
+    <div class="controls">
+      <div class="field">
+        <label for="palabra">Palabra clave (opcional)</label>
+        <input id="palabra" type="text" placeholder="ej. uniformes, construcción — deja vacío para traer todos">
+      </div>
+      <div class="field">
+        <label for="ciudad">Ciudad del proveedor (opcional)</label>
+        <input id="ciudad" type="text" placeholder="ej. Bogotá — ciudad de la empresa ganadora">
+      </div>
+      <div class="field">
+        <label for="fechaDesde">Publicado desde (opcional)</label>
+        <input id="fechaDesde" type="date">
+      </div>
+      <div class="field">
+        <label for="fechaHasta">Publicado hasta (opcional)</label>
+        <input id="fechaHasta" type="date">
+      </div>
+      <div class="field">
+        <label for="nombreAgente">Nombre de la agente (para el mensaje)</label>
+        <input id="nombreAgente" type="text" placeholder="ej. María Pérez">
+      </div>
+      <button class="btn-primary" id="btnBuscar">Buscar adjudicados</button>
+      <button class="btn-secondary" id="btnExportar" disabled>Exportar a Excel</button>
+    </div>
+    <div class="status" id="status">Listo para buscar. No necesitas usuario ni clave — la fuente es pública.</div>
+  </div>
+
+  <div id="resultadosWrap"></div>
+</div>
+
+<footer>Fuente: datos.gov.co — SECOP II, Procesos de Contratación (Colombia Compra Eficiente). El contacto (teléfono/correo) se verifica manualmente en el Detalle de cada proceso.
+  <br><a href="#" id="btnDiagnostico" style="color:var(--ink-soft); font-size:0.75rem;">¿Algo no funciona bien? Clic aquí para revisar</a>
+</footer>
+
+<script>
+const API_URL = "https://www.datos.gov.co/resource/p6dx-8zbt.json";
+let ultimosResultados = [];
+
+function generarMensaje(registro, nombreAgente){
+  const empresa = registro.nombre_del_proveedor || "estimada empresa";
+  const entidad = registro.entidad || "una entidad pública";
+  let objeto = registro.descripci_n_del_procedimiento || "un proceso de contratación";
+  if(objeto.length > 140) objeto = objeto.slice(0,140) + "...";
+  const firma = nombreAgente ? nombreAgente : "[tu nombre]";
+  return `Hola, vi que ${empresa} resultó adjudicatario del proceso "${objeto}" con ${entidad}. Los felicito por el logro. Le escribo porque, para formalizar este contrato, probablemente necesite tramitar la póliza de cumplimiento correspondiente — me gustaría ofrecerle mi apoyo como asesor(a) en esa gestión, sin ningún compromiso. Quedo atento(a).\n\n${firma}`;
+}
+
+function construirURL(palabra, limite){
+  let clausulas = ["upper(adjudicado) = 'SI'"];
+  if(palabra && palabra.trim()){
+    const p = palabra.trim().toUpperCase().replace(/'/g, "''");
+    clausulas.push(`upper(descripci_n_del_procedimiento) like '%${p}%'`);
+  }
+  const params = new URLSearchParams({
+    "$where": clausulas.join(" AND "),
+    "$limit": String(limite)
+  });
+  return `${API_URL}?${params.toString()}`;
+}
+
+function renderTabla(registros, nombreAgente){
+  const wrap = document.getElementById('resultadosWrap');
+  if(!registros.length){
+    wrap.innerHTML = `<div class="empty-state">No se encontraron procesos adjudicados con ese filtro. Intenta con otra palabra clave o revisa más adelante.</div>`;
+    return;
+  }
+
+  const filas = registros.map((r, i) => {
+    const empresa = r.nombre_del_proveedor || "—";
+    const nit = r.nit_del_proveedor_adjudicado || "—";
+    const entidad = r.entidad || "—";
+    const ciudadProveedor = r.ciudad_proveedor || "—";
+    const objeto = r.descripci_n_del_procedimiento || "—";
+    const estado = "Adjudicado y Celebrado"; // texto fijo: ya filtramos por adjudicado="Sí", que es el dato confiable
+    const valor = r.valor_total_adjudicacion || "—";
+    const url = (r.urlproceso && r.urlproceso.url) ? r.urlproceso.url : "";
+    const mensaje = generarMensaje(r, nombreAgente);
+    return `
+      <tr>
+        <td>${entidad}</td>
+        <td>${ciudadProveedor}</td>
+        <td>${objeto}</td>
+        <td>${empresa}</td>
+        <td>${nit}</td>
+        <td>${valor}</td>
+        <td>${estado}</td>
+        <td>${url ? `<a class="detalle-link" href="${url}" target="_blank" rel="noopener">Ver Detalle →</a>` : '—'}</td>
+        <td class="col-msg">
+          <div class="msg-text" id="msg-${i}">${mensaje.replace(/\n/g,'<br>')}</div>
+          <button class="btn-copiar-msg" data-msg="${mensaje.replace(/"/g, '&quot;')}" style="margin-top:0.4rem; font-size:0.72rem; padding:0.3rem 0.6rem; background:var(--brand-soft); color:var(--brand); border:1px solid var(--brand);">Copiar mensaje</button>
+        </td>
+      </tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Entidad</th>
+            <th>Ciudad (proveedor)</th>
+            <th>Descripción del proceso</th>
+            <th>Empresa</th>
+            <th>NIT</th>
+            <th>Valor</th>
+            <th>Estado</th>
+            <th>Detalle</th>
+            <th>Mensaje sugerido</th>
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>`;
+
+  // Clic en el texto del mensaje: expandir/contraer para leerlo completo
+  document.querySelectorAll('.msg-text').forEach(el => {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', () => el.classList.toggle('expanded'));
+  });
+
+  // Botón "Copiar mensaje": copia el texto completo al portapapeles con un clic
+  document.querySelectorAll('.btn-copiar-msg').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const texto = btn.getAttribute('data-msg');
+      navigator.clipboard.writeText(texto).then(() => {
+        const original = btn.textContent;
+        btn.textContent = '¡Copiado!';
+        setTimeout(() => { btn.textContent = original; }, 1500);
+      }).catch(() => {
+        btn.textContent = 'No se pudo copiar';
+      });
+    });
+  });
+}
+
+async function buscar(){
+  const status = document.getElementById('status');
+  const btnBuscar = document.getElementById('btnBuscar');
+  const btnExportar = document.getElementById('btnExportar');
+  const palabra = document.getElementById('palabra').value;
+  const nombreAgente = document.getElementById('nombreAgente').value;
+
+  btnBuscar.disabled = true;
+  btnExportar.disabled = true;
+  status.textContent = "Consultando la fuente oficial de datos abiertos...";
+  status.className = "status";
+
+  try{
+    const PAGINA = 1000; // máximo por bloque
+    const TOPE_SEGURIDAD = 10000; // nunca traer más que esto en una corrida
+    let todos = [];
+    let offset = 0;
+    const ciudad = document.getElementById('ciudad').value;
+    const fechaDesde = document.getElementById('fechaDesde').value;
+    const fechaHasta = document.getElementById('fechaHasta').value;
+
+    while(true){
+      let clausulas = ["upper(adjudicado) = 'SI'"];
+      if(palabra && palabra.trim()){
+        const p = palabra.trim().toUpperCase().replace(/'/g, "''");
+        clausulas.push(`upper(descripci_n_del_procedimiento) like '%${p}%'`);
+      }
+      if(ciudad && ciudad.trim()){
+        const c = ciudad.trim().toUpperCase().replace(/'/g, "''");
+        clausulas.push(`upper(ciudad_proveedor) like '%${c}%'`);
+      }
+      if(fechaDesde){
+        clausulas.push(`fecha_de_publicacion_del >= '${fechaDesde}T00:00:00.000'`);
+      }
+      if(fechaHasta){
+        clausulas.push(`fecha_de_publicacion_del <= '${fechaHasta}T23:59:59.000'`);
+      }
+      const params = new URLSearchParams({
+        "$where": clausulas.join(" AND "),
+        "$limit": String(PAGINA),
+        "$offset": String(offset),
+      });
+      status.textContent = `Trayendo resultados... (${todos.length} encontrados hasta ahora)`;
+
+      const resp = await fetch(`${API_URL}?${params.toString()}`);
+      if(!resp.ok) throw new Error(`La fuente respondió con error ${resp.status}`);
+      const bloque = await resp.json();
+
+      todos = todos.concat(bloque);
+      offset += PAGINA;
+
+      if(bloque.length < PAGINA) break; // ya no hay más páginas
+      if(offset >= TOPE_SEGURIDAD) break; // límite de seguridad
+    }
+
+    ultimosResultados = todos.map(r => ({...r, _mensaje: generarMensaje(r, nombreAgente)}));
+    renderTabla(todos, nombreAgente);
+
+    if(todos.length){
+      status.textContent = `Se encontraron ${todos.length} procesos adjudicados en total (búsqueda completa, no parcial). Clic en "Ver Detalle" para verificar el contacto.`;
+      status.className = "status ok";
+      btnExportar.disabled = false;
+    } else {
+      status.textContent = "No se encontraron resultados con ese filtro.";
+      status.className = "status";
+    }
+  } catch(err){
+    status.textContent = "No se pudo conectar con la fuente de datos: " + err.message + ". Intenta de nuevo en unos segundos.";
+    status.className = "status error";
+    console.error(err);
+  } finally {
+    btnBuscar.disabled = false;
+  }
+}
+
+function exportarExcel(){
+  if(!ultimosResultados.length) return;
+  const filas = ultimosResultados.map(r => ({
+    "Entidad": r.entidad || "",
+    "Ciudad (proveedor)": r.ciudad_proveedor || "",
+    "Descripción del proceso": r.descripci_n_del_procedimiento || "",
+    "Empresa": r.nombre_del_proveedor || "",
+    "NIT": r.nit_del_proveedor_adjudicado || "",
+    "Valor adjudicado": r.valor_total_adjudicacion || "",
+    "Estado": "Adjudicado y Celebrado",
+    "Enlace al Detalle": (r.urlproceso && r.urlproceso.url) ? r.urlproceso.url : "",
+    "Mensaje sugerido": r._mensaje || "",
+  }));
+  const ws = XLSX.utils.json_to_sheet(filas);
+  ws['!cols'] = [{wch:28},{wch:16},{wch:45},{wch:28},{wch:16},{wch:15},{wch:20},{wch:45},{wch:60}];
+
+  // Convertir la columna "Enlace al Detalle" en hipervínculos reales clicables
+  const colDetalle = 7;
+  ultimosResultados.forEach((r, i) => {
+    const url = (r.urlproceso && r.urlproceso.url) ? r.urlproceso.url : "";
+    if(url){
+      const celda = XLSX.utils.encode_cell({r: i + 1, c: colDetalle});
+      ws[celda] = { t: 's', v: 'Ver Detalle (clic aquí)', l: { Target: url } };
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Leads SECOP");
+  const fecha = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `leads_secop_${fecha}.xlsx`);
+}
+
+async function diagnosticar(){
+  const status = document.getElementById('status');
+  const wrap = document.getElementById('resultadosWrap');
+  status.textContent = "Trayendo 2 registros SIN filtro, para ver los datos reales...";
+  status.className = "status";
+  try{
+    const resp = await fetch(`${API_URL}?$limit=2`);
+    if(!resp.ok) throw new Error(`Error ${resp.status}`);
+    const datos = await resp.json();
+    const textoCompleto = JSON.stringify(datos, null, 2);
+    status.textContent = `Listo. Dale clic al botón "Copiar todo" de abajo y pégalo aquí en el chat.`;
+    status.className = "status ok";
+    wrap.innerHTML = `
+      <div class="panel">
+        <button class="btn-primary" id="btnCopiar" style="margin-bottom:0.8rem;">Copiar todo</button>
+        <span id="copiadoMsg" style="margin-left:0.6rem; color:var(--brand); font-weight:600; font-size:0.85rem;"></span>
+        <pre id="jsonCrudo" style="white-space:pre-wrap; font-size:0.78rem; overflow:auto; max-height:500px;">${textoCompleto}</pre>
+      </div>`;
+    document.getElementById('btnCopiar').addEventListener('click', () => {
+      navigator.clipboard.writeText(textoCompleto).then(() => {
+        document.getElementById('copiadoMsg').textContent = "¡Copiado! Ahora pégalo en el chat.";
+      }).catch(() => {
+        document.getElementById('copiadoMsg').textContent = "No se pudo copiar automático — selecciona el texto de abajo manualmente.";
+      });
+    });
+  } catch(err){
+    status.textContent = "Error al traer el diagnóstico: " + err.message;
+    status.className = "status error";
+  }
+}
+
+document.getElementById('btnBuscar').addEventListener('click', buscar);
+document.getElementById('btnExportar').addEventListener('click', exportarExcel);
+document.getElementById('btnDiagnostico').addEventListener('click', (e) => { e.preventDefault(); diagnosticar(); });
+</script>
+
+</body>
+</html>
